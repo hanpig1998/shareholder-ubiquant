@@ -489,13 +489,8 @@
 
     togglesContainer.innerHTML = '';
 
-    if (!records || records.length < 2) {
-      // Not enough data for a meaningful line chart
+    if (!records || records.length === 0) {
       chartEmptyMsg.classList.remove('hidden');
-      // Still show a single-point chart if there is data
-      if (records && records.length === 1 && records[0].funds && records[0].funds.length > 0) {
-        renderSinglePointChart(ctx, records);
-      }
       return;
     }
 
@@ -608,65 +603,6 @@
         window.navChartInstance.update();
       });
       togglesContainer.appendChild(btn);
-    });
-  }
-
-  function renderSinglePointChart(ctx, records) {
-    // Show a simple chart with current NAV data points (as horizontal markers)
-    var record = records[0];
-    var funds = record.funds || [];
-    var labels = funds.map(function (f) { return ''; }); // No meaningful x-axis labels
-    var values = funds.map(function (f) { return f.unit_nav; });
-    var fundNames = funds.map(function (f) { return f.name; });
-
-    var datasets = funds.map(function (fund, i) {
-      var color = CHART_COLORS[i % CHART_COLORS.length];
-      return {
-        label: fund.name,
-        data: [fund.unit_nav],
-        borderColor: color,
-        backgroundColor: color,
-        pointBackgroundColor: color,
-        pointRadius: 6,
-        pointHoverRadius: 8,
-        showLine: false
-      };
-    });
-
-    window.navChartInstance = new Chart(ctx, {
-      type: 'scatter',
-      data: {
-        labels: [record.date],
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#1e293b',
-            padding: 12,
-            cornerRadius: 8,
-            callbacks: {
-              label: function (context) {
-                return context.dataset.label + ': ' + (context.parsed.y != null ? context.parsed.y.toFixed(4) : '--');
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { font: { size: 11 }, color: '#94a3b8' }
-          },
-          y: {
-            beginAtZero: false,
-            grid: { color: '#f1f5f9' },
-            ticks: { font: { size: 11 }, color: '#94a3b8', callback: function (v) { return v.toFixed(4); } }
-          }
-        }
-      }
     });
   }
 
