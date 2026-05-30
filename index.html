@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基金持仓</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: #1e293b;
+    line-height: 1.6;
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* Summary Card */
+  .summary-card {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(30, 41, 59, 0.25);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .summary-item {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .summary-item .label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .summary-item .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .summary-item .value.total-value {
+    font-size: 1.9rem;
+  }
+
+  .summary-item .sub {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  /* Card base style */
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f1f5f9;
+  }
+
+  /* Table */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    min-width: 700px;
+  }
+
+  thead th {
+    background: #f8fafc;
+    padding: 12px 14px;
+    text-align: right;
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    border-bottom: 2px solid #e2e8f0;
+    letter-spacing: 0.5px;
+  }
+
+  thead th:first-child {
+    text-align: left;
+  }
+
+  tbody td {
+    padding: 12px 14px;
+    text-align: right;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody td:first-child {
+    text-align: left;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background-color: #f8fafc;
+  }
+
+  .fund-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .return-positive {
+    color: #22c55e;
+    font-weight: 600;
+  }
+
+  .return-negative {
+    color: #ef4444;
+    font-weight: 600;
+  }
+
+  .nav-null {
+    color: #94a3b8;
+    font-style: normal;
+  }
+
+  /* Chart */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 360px;
+  }
+
+  .chart-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .chart-toggle-btn {
+    padding: 6px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 20px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: #475569;
+    transition: all 0.2s ease;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chart-toggle-btn:hover {
+    opacity: 0.8;
+  }
+
+  .chart-toggle-btn.inactive {
+    opacity: 0.4;
+    border-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+  }
+
+  .empty-state .icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .empty-state p {
+    font-size: 1.1rem;
+  }
+
+  .chart-empty-msg {
+    text-align: center;
+    padding: 30px;
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+    font-size: 1rem;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Hidden */
+  .hidden {
+    display: none;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    color: #94a3b8;
+    font-size: 0.8rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    body {
+      padding: 12px;
+    }
+
+    .summary-card {
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .summary-item {
+      min-width: 120px;
+    }
+
+    .summary-item .value {
+      font-size: 1.3rem;
+    }
+
+    .summary-item .value.total-value {
+      font-size: 1.5rem;
+    }
+
+    .card {
+      padding: 16px;
+    }
+
+    .chart-container {
+      height: 280px;
+    }
+
+    .fund-name {
+      max-width: 130px;
+    }
+
+    .chart-toggle-btn {
+      max-width: 140px;
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .summary-item {
+      min-width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1 class="page-title">基金持仓</h1>
+
+  <div id="app">
+    <div class="loading" id="loadingIndicator">
+      <div class="spinner"></div>
+      <p>加载中...</p>
+    </div>
+
+    <div id="mainContent" class="hidden">
+      <!-- Summary Card -->
+      <div class="summary-card" id="summaryCard">
+        <div class="summary-item">
+          <div class="label">持仓总市值</div>
+          <div class="value total-value" id="totalValue">--</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">净值日期</div>
+          <div class="value" id="navDate">--</div>
+          <div class="sub" id="fundCount"></div>
+        </div>
+        <div class="summary-item">
+          <div class="label">更新时间</div>
+          <div class="value" id="updateTime">--</div>
+          <div class="sub">数据来源: 基金托管报告</div>
+        </div>
+      </div>
+
+      <!-- Fund Table Card -->
+      <div class="card">
+        <div class="card-title">产品明细</div>
+        <div class="table-wrapper">
+          <table id="fundTable">
+            <thead>
+              <tr>
+                <th>产品名称</th>
+                <th>持有份额</th>
+                <th>持仓市值</th>
+                <th>单位净值</th>
+                <th>累计净值</th>
+                <th>复权净值</th>
+                <th>周度收益</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NAV Chart Card -->
+      <div class="card">
+        <div class="card-title">单位净值走势</div>
+        <div id="chartArea">
+          <div class="chart-toggles" id="chartToggles"></div>
+          <div class="chart-container">
+            <canvas id="navChart"></canvas>
+          </div>
+          <div class="chart-empty-msg hidden" id="chartEmptyMsg">需多期数据才能展示净值走势图</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="emptyState" class="hidden">
+      <div class="card">
+        <div class="empty-state">
+          <span class="icon">&#128202;</span>
+          <p>暂无数据</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    基金持仓监控 &middot; 数据每日更新
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const CHART_COLORS = [
+    '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+    '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'
+  ];
+
+  const $ = function (id) { return document.getElementById(id); };
+
+  // ----- Formatting helpers -----
+
+  function formatCurrency(value) {
+    if (value == null) return '--';
+    return '¥' + value.toLocaleString('zh-CN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function formatShares(value) {
+    if (value == null) return '--';
+    return value.toLocaleString('zh-CN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function formatNav(value) {
+    if (value == null) return '<span class="nav-null">--</span>';
+    return value.toLocaleString('zh-CN', {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4
+    });
+  }
+
+  function formatWeeklyReturn(value) {
+    if (value == null) return '--';
+    var pct = (value * 100).toFixed(2) + '%';
+    if (value > 0) {
+      return '<span class="return-positive">+' + pct + '</span>';
+    } else if (value < 0) {
+      return '<span class="return-negative">' + pct + '</span>';
+    }
+    return pct;
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ----- Render functions -----
+
+  function renderSummary(data, latestRecord, fundCount) {
+    $('totalValue').textContent = formatCurrency(latestRecord.total_value);
+    $('navDate').textContent = latestRecord.date;
+    $('fundCount').textContent = '共 ' + fundCount + ' 只产品';
+    $('updateTime').textContent = data.last_updated || '--';
+  }
+
+  function renderTable(latestRecord) {
+    var tbody = $('tableBody');
+    tbody.innerHTML = '';
+
+    if (!latestRecord.funds || latestRecord.funds.length === 0) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="7" style="text-align:center;color:#94a3b8;padding:40px;">暂无产品数据</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    latestRecord.funds.forEach(function (fund) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span></td>' +
+        '<td>' + formatShares(fund.shares) + '</td>' +
+        '<td>' + formatCurrency(fund.market_value) + '</td>' +
+        '<td>' + formatNav(fund.unit_nav) + '</td>' +
+        '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
+        '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
+        '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderChart(records) {
+    var togglesContainer = $('chartToggles');
+    var chartEmptyMsg = $('chartEmptyMsg');
+    var canvas = $('navChart');
+    var ctx = canvas.getContext('2d');
+
+    togglesContainer.innerHTML = '';
+
+    if (!records || records.length < 2) {
+      // Not enough data for a meaningful line chart
+      chartEmptyMsg.classList.remove('hidden');
+      // Still show a single-point chart if there is data
+      if (records && records.length === 1 && records[0].funds && records[0].funds.length > 0) {
+        renderSinglePointChart(ctx, records);
+      }
+      return;
+    }
+
+    chartEmptyMsg.classList.add('hidden');
+
+    var dates = records.map(function (r) { return r.date; });
+
+    // Build per-fund data across all records
+    var fundsMap = {};
+    records.forEach(function (record, recordIdx) {
+      (record.funds || []).forEach(function (fund) {
+        if (!fundsMap[fund.name]) {
+          fundsMap[fund.name] = { values: new Array(records.length).fill(null) };
+        }
+        fundsMap[fund.name].values[recordIdx] = fund.unit_nav;
+      });
+    });
+
+    var fundNames = Object.keys(fundsMap);
+    var datasets = [];
+    fundNames.forEach(function (name, i) {
+      var color = CHART_COLORS[i % CHART_COLORS.length];
+      datasets.push({
+        label: name,
+        data: fundsMap[name].values,
+        borderColor: color,
+        backgroundColor: color + '20',
+        pointBackgroundColor: color,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.15,
+        spanGaps: false
+      });
+    });
+
+    window.navChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { size: 13 },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: function (context) {
+                if (context.parsed.y == null) return context.dataset.label + ': --';
+                return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: { size: 11 },
+              color: '#94a3b8',
+              maxRotation: 45
+            }
+          },
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: '#f1f5f9'
+            },
+            ticks: {
+              font: { size: 11 },
+              color: '#94a3b8',
+              callback: function (value) {
+                return value.toFixed(4);
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Create toggle buttons
+    fundNames.forEach(function (name, i) {
+      var color = CHART_COLORS[i % CHART_COLORS.length];
+      var btn = document.createElement('button');
+      btn.className = 'chart-toggle-btn';
+      btn.style.borderColor = color;
+      btn.style.color = color;
+      btn.title = name;
+      btn.textContent = name;
+      btn.addEventListener('click', function () {
+        var meta = window.navChartInstance.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        btn.classList.toggle('inactive');
+        window.navChartInstance.update();
+      });
+      togglesContainer.appendChild(btn);
+    });
+  }
+
+  function renderSinglePointChart(ctx, records) {
+    // Show a simple chart with current NAV data points (as horizontal markers)
+    var record = records[0];
+    var funds = record.funds || [];
+    var labels = funds.map(function (f) { return ''; }); // No meaningful x-axis labels
+    var values = funds.map(function (f) { return f.unit_nav; });
+    var fundNames = funds.map(function (f) { return f.name; });
+
+    var datasets = funds.map(function (fund, i) {
+      var color = CHART_COLORS[i % CHART_COLORS.length];
+      return {
+        label: fund.name,
+        data: [fund.unit_nav],
+        borderColor: color,
+        backgroundColor: color,
+        pointBackgroundColor: color,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        showLine: false
+      };
+    });
+
+    window.navChartInstance = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        labels: [record.date],
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: function (context) {
+                return context.dataset.label + ': ' + (context.parsed.y != null ? context.parsed.y.toFixed(4) : '--');
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 11 }, color: '#94a3b8' }
+          },
+          y: {
+            beginAtZero: false,
+            grid: { color: '#f1f5f9' },
+            ticks: { font: { size: 11 }, color: '#94a3b8', callback: function (v) { return v.toFixed(4); } }
+          }
+        }
+      }
+    });
+  }
+
+  // ----- Main -----
+
+  function showLoading(show) {
+    $('loadingIndicator').classList.toggle('hidden', !show);
+  }
+
+  function showMainContent(show) {
+    $('mainContent').classList.toggle('hidden', !show);
+  }
+
+  function showEmptyState(show) {
+    $('emptyState').classList.toggle('hidden', !show);
+  }
+
+  function init() {
+    showLoading(true);
+    showMainContent(false);
+    showEmptyState(false);
+
+    fetch('data/funds.json')
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        showLoading(false);
+
+        if (!data || !data.records || data.records.length === 0) {
+          showEmptyState(true);
+          return;
+        }
+
+        var latestRecord = data.records[data.records.length - 1];
+        var fundCount = (latestRecord.funds || []).length;
+
+        renderSummary(data, latestRecord, fundCount);
+        renderTable(latestRecord);
+        renderChart(data.records);
+
+        showMainContent(true);
+      })
+      .catch(function (err) {
+        showLoading(false);
+        showEmptyState(true);
+        var empty = document.querySelector('#emptyState .empty-state p');
+        if (empty) {
+          empty.textContent = '数据加载失败: ' + err.message;
+        }
+        console.error('Failed to load fund data:', err);
+      });
+  }
+
+  // Run on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
