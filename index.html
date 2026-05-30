@@ -625,7 +625,7 @@
     showMainContent(false);
     showEmptyState(false);
 
-    fetch('data/funds.json')
+    fetch('data/funds.json', {cache: 'no-cache'})
       .then(function (response) {
         if (!response.ok) {
           throw new Error('HTTP ' + response.status);
