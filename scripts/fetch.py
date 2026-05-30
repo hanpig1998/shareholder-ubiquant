@@ -9,6 +9,8 @@ from datetime import datetime
 IMAP_HOST = "imap.163.com"
 IMAP_PORT = 993
 SENDER_FILTER = "product_service@ubiquant.com"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(SCRIPT_DIR, "..", "data", "funds.json")
 
 
 def connect():
@@ -98,15 +100,7 @@ def parse_funds(text):
 
     for match in product_lines:
         name = match.group(1).strip()
-        start_idx = lines.index(name) if name in lines else -1
-        if start_idx < 0:
-            # try to find by partial match
-            for i, line in enumerate(lines):
-                if name in line:
-                    start_idx = i
-                    break
-        if start_idx < 0:
-            continue
+        start_idx = text[:match.start()].count('\n')
 
         # Read numeric values after the product name
         values = []
@@ -115,7 +109,7 @@ def parse_funds(text):
             if not line:
                 continue
             # Check if this line looks like a number (may have commas, %, dots)
-            num_match = re.match(r'^([\d,]+(?:\.\d+)?%?)$', line)
+            num_match = re.match(r'^(-?[\d,]+(?:\.\d+)?%?)$', line)
             if num_match:
                 val_str = num_match.group(1).replace(',', '')
                 if val_str.endswith('%'):
@@ -188,19 +182,24 @@ def main():
         sys.exit(0)
 
     print("Fetching latest email...")
-    body = fetch_latest_email(mail, msg_ids)
-    mail.logout()
+    try:
+        body = fetch_latest_email(mail, msg_ids)
+    finally:
+        mail.logout()
 
     if not body:
         print("Could not extract email body")
         sys.exit(1)
 
     print("Parsing fund data...")
-    new_record = parse_funds(body)
+    try:
+        new_record = parse_funds(body)
+    except ValueError as e:
+        print(f"Error parsing email: {e}")
+        sys.exit(1)
     print(f"Parsed {len(new_record['funds'])} funds, date={new_record['date']}")
 
-    data_file = "data/funds.json"
-    data = load_existing_data(data_file)
+    data = load_existing_data(DATA_FILE)
 
     # Check if this date already exists
     existing_dates = {r["date"] for r in data["records"]}
@@ -213,8 +212,8 @@ def main():
     data["records"].sort(key=lambda r: r["date"])
     data["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    save_data(data_file, data)
-    print(f"Saved to {data_file}")
+    save_data(DATA_FILE, data)
+    print(f"Saved to {DATA_FILE}")
 
     # Print summary
     print(f"\n{'='*50}")
