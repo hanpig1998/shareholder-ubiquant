@@ -1,6 +1,5 @@
 import imaplib
 import email
-from email.header import decode_header
 import re
 import json
 import os
