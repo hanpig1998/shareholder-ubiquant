@@ -1,5 +1,6 @@
 import imaplib
 import email
+from email.header import decode_header
 import re
 import json
 import os
@@ -16,45 +17,102 @@ DATA_FILE = os.path.join(SCRIPT_DIR, "..", "data", "funds.json")
 def connect():
     account = os.environ["EMAIL_ACCOUNT"]
     password = os.environ["EMAIL_PASSWORD"]
+    # 163.com requires IMAP ID command before SELECT
+    imaplib.Commands["ID"] = "AUTH"
     mail = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
     mail.login(account, password)
+    args = ("name", "fund-tracker", "contact", account,
+            "version", "1.0.0", "vendor", "python-client")
+    mail._simple_command("ID", '("' + '" "'.join(args) + '")')
     return mail
 
 
 def search_emails(mail, sender):
     mail.select("INBOX")
-    status, messages = mail.search(None, f'(FROM "{sender}")')
+    status, messages = mail.search(None, "(SINCE 01-Jan-2026)")
     if status != "OK":
         return []
     return messages[0].split()
 
 
-def fetch_latest_email(mail, msg_ids):
-    """Fetch the latest (most recent) email body."""
-    if not msg_ids:
-        return None
-    latest_id = msg_ids[-1]
-    status, data = mail.fetch(latest_id, "(RFC822)")
-    if status != "OK":
-        return None
-    raw_email = data[0][1]
-    msg = email.message_from_bytes(raw_email)
-    return get_email_body(msg)
+def fetch_all_bodies(mail, msg_ids):
+    """Fetch plain text bodies from matching emails, filtering by sender and subject."""
+    bodies = []
+    for msg_id in msg_ids:
+        status, data = mail.fetch(msg_id, "(RFC822)")
+        if status != "OK":
+            continue
+        raw_email = data[0][1]
+        msg = email.message_from_bytes(raw_email)
+        # Filter by sender and subject
+        sender_header = str(msg.get("From", ""))
+        subject_raw = msg.get("Subject", "")
+        if subject_raw:
+            subject_parts = decode_header(subject_raw)
+            subject_header = ""
+            for part, charset in subject_parts:
+                if isinstance(part, bytes):
+                    try:
+                        subject_header += part.decode(charset or "utf-8")
+                    except (LookupError, UnicodeDecodeError):
+                        subject_header += part.decode("utf-8", errors="replace")
+                else:
+                    subject_header += part
+        else:
+            subject_header = ""
+        if "ubiquant" not in sender_header.lower() or "周度" not in subject_header:
+            continue
+        body = get_email_body(msg)
+        if body:
+            bodies.append(body)
+    return bodies
+
+
+def html_to_text(html):
+    """Strip HTML tags to extract plain text."""
+    # Remove style/script content
+    html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Replace <br> and block elements with newlines
+    html = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
+    html = re.sub(r'</?(p|div|tr|td|th|h\d|li)[^>]*>', '\n', html, flags=re.IGNORECASE)
+    # Remove all other tags
+    html = re.sub(r'<[^>]+>', '', html)
+    # Decode HTML entities
+    html = html.replace('&nbsp;', ' ').replace('&gt;', '>').replace('&lt;', '<')
+    html = html.replace('&amp;', '&').replace('&quot;', '"')
+    # Clean up whitespace
+    html = re.sub(r'\n\s*\n', '\n\n', html)
+    html = re.sub(r'[ \t]+', ' ', html)
+    return html.strip()
 
 
 def get_email_body(msg):
-    """Extract plain text body from email message."""
+    """Extract plain text body from email message. Falls back to HTML if needed."""
     if msg.is_multipart():
+        html_body = None
         for part in msg.walk():
             content_type = part.get_content_type()
             if content_type == "text/plain":
                 payload = part.get_payload(decode=True)
-                charset = part.get_content_charset() or "utf-8"
-                return payload.decode(charset, errors="replace")
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    return payload.decode(charset, errors="replace")
+            elif content_type == "text/html" and html_body is None:
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    html_body = payload.decode(charset, errors="replace")
+        if html_body:
+            return html_to_text(html_body)
     else:
         payload = msg.get_payload(decode=True)
-        charset = msg.get_content_charset() or "utf-8"
-        return payload.decode(charset, errors="replace")
+        if payload:
+            charset = msg.get_content_charset() or "utf-8"
+            text = payload.decode(charset, errors="replace")
+            if msg.get_content_type() == "text/html":
+                return html_to_text(text)
+            return text
     return ""
 
 
@@ -104,7 +162,7 @@ def parse_funds(text):
 
         # Read numeric values after the product name
         values = []
-        for i in range(start_idx + 1, min(start_idx + 10, len(lines))):
+        for i in range(start_idx + 1, min(start_idx + 20, len(lines))):
             line = lines[i].strip()
             if not line:
                 continue
@@ -167,21 +225,6 @@ def save_data(filepath, data):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def fetch_all_bodies(mail, msg_ids):
-    """Fetch plain text bodies from all matching emails."""
-    bodies = []
-    for msg_id in msg_ids:
-        status, data = mail.fetch(msg_id, "(RFC822)")
-        if status != "OK":
-            continue
-        raw_email = data[0][1]
-        msg = email.message_from_bytes(raw_email)
-        body = get_email_body(msg)
-        if body:
-            bodies.append(body)
-    return bodies
 
 
 def main():
