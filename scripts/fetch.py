@@ -169,6 +169,21 @@ def save_data(filepath, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def fetch_all_bodies(mail, msg_ids):
+    """Fetch plain text bodies from all matching emails."""
+    bodies = []
+    for msg_id in msg_ids:
+        status, data = mail.fetch(msg_id, "(RFC822)")
+        if status != "OK":
+            continue
+        raw_email = data[0][1]
+        msg = email.message_from_bytes(raw_email)
+        body = get_email_body(msg)
+        if body:
+            bodies.append(body)
+    return bodies
+
+
 def main():
     print("Connecting to IMAP...")
     mail = connect()
@@ -181,52 +196,43 @@ def main():
         print("No emails found, exiting")
         sys.exit(0)
 
-    print("Fetching latest email...")
+    print(f"Fetching all {len(msg_ids)} emails...")
     try:
-        body = fetch_latest_email(mail, msg_ids)
+        bodies = fetch_all_bodies(mail, msg_ids)
     finally:
         mail.logout()
 
-    if not body:
-        print("Could not extract email body")
-        sys.exit(1)
-
-    print("Parsing fund data...")
-    try:
-        new_record = parse_funds(body)
-    except ValueError as e:
-        print(f"Error parsing email: {e}")
-        sys.exit(1)
-    print(f"Parsed {len(new_record['funds'])} funds, date={new_record['date']}")
+    print(f"Fetched {len(bodies)} email bodies")
 
     data = load_existing_data(DATA_FILE)
-
-    # Check if this date already exists
     existing_dates = {r["date"] for r in data["records"]}
-    if new_record["date"] in existing_dates:
-        print(f"Data for {new_record['date']} already exists, skipping")
+    new_count = 0
+
+    for body in bodies:
+        try:
+            record = parse_funds(body)
+        except ValueError as e:
+            print(f"  Skipping email: {e}")
+            continue
+
+        if record["date"] in existing_dates:
+            print(f"  {record['date']} already exists, skipping")
+            continue
+
+        data["records"].append(record)
+        existing_dates.add(record["date"])
+        new_count += 1
+        print(f"  Parsed {record['date']}: {len(record['funds'])} funds, total={record['total_value']:,.2f}")
+
+    if new_count == 0:
+        print("No new records to add")
         sys.exit(0)
 
-    # Add new record and sort by date
-    data["records"].append(new_record)
     data["records"].sort(key=lambda r: r["date"])
     data["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     save_data(DATA_FILE, data)
-    print(f"Saved to {DATA_FILE}")
-
-    # Print summary
-    print(f"\n{'='*50}")
-    print(f"Fund Data Summary - {new_record['date']}")
-    print(f"Total Market Value: {new_record['total_value']:,.2f}")
-    print(f"{'='*50}")
-    for fund in new_record["funds"]:
-        print(f"  {fund['name']}")
-        print(f"    Shares: {fund['shares']:,.2f}")
-        print(f"    Market Value: {fund['market_value']:,.2f}")
-        print(f"    Unit NAV: {fund['unit_nav']:.4f}")
-        print(f"    Weekly Return: {fund['weekly_return']*100:.2f}%")
-        print()
+    print(f"\nAdded {new_count} new records, total {len(data['records'])} records saved to {DATA_FILE}")
 
 
 if __name__ == "__main__":
