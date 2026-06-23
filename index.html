@@ -397,6 +397,10 @@
 (function () {
   'use strict';
 
+  // Ownership split config for Tian Xing fund
+  var TIANXING_KEYWORD = '天行';
+  var TIANXING_L_SHARES = 634316.52;
+
   const CHART_COLORS = [
     '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
     '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'
@@ -456,6 +460,27 @@
     $('updateTime').textContent = data.last_updated || '--';
   }
 
+  function splitFund(fund) {
+    if (fund.name.indexOf(TIANXING_KEYWORD) === -1 || fund.shares < TIANXING_L_SHARES) {
+      return [fund];
+    }
+    var xShares = fund.shares - TIANXING_L_SHARES;
+    var lRatio = TIANXING_L_SHARES / fund.shares;
+    var xRatio = xShares / fund.shares;
+    return [
+      Object.assign({}, fund, {
+        name: fund.name + ' (L)',
+        shares: TIANXING_L_SHARES,
+        market_value: fund.market_value * lRatio
+      }),
+      Object.assign({}, fund, {
+        name: fund.name + ' (X)',
+        shares: xShares,
+        market_value: fund.market_value * xRatio
+      })
+    ];
+  }
+
   function renderTable(latestRecord) {
     var tbody = $('tableBody');
     tbody.innerHTML = '';
@@ -467,7 +492,12 @@
       return;
     }
 
+    var displayFunds = [];
     latestRecord.funds.forEach(function (fund) {
+      displayFunds = displayFunds.concat(splitFund(fund));
+    });
+
+    displayFunds.forEach(function (fund) {
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td><span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span></td>' +
