@@ -152,6 +152,24 @@
     vertical-align: middle;
   }
 
+  .person-select {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    vertical-align: middle;
+    font-family: inherit;
+  }
+
+  .person-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  }
+
   .return-positive {
     color: #22c55e;
     font-weight: 600;
@@ -460,27 +478,6 @@
     $('updateTime').textContent = data.last_updated || '--';
   }
 
-  function splitFund(fund) {
-    if (fund.name.indexOf(TIANXING_KEYWORD) === -1 || fund.shares < TIANXING_L_SHARES) {
-      return [fund];
-    }
-    var xShares = fund.shares - TIANXING_L_SHARES;
-    var lRatio = TIANXING_L_SHARES / fund.shares;
-    var xRatio = xShares / fund.shares;
-    return [
-      Object.assign({}, fund, {
-        name: fund.name + ' (L)',
-        shares: TIANXING_L_SHARES,
-        market_value: fund.market_value * lRatio
-      }),
-      Object.assign({}, fund, {
-        name: fund.name + ' (X)',
-        shares: xShares,
-        market_value: fund.market_value * xRatio
-      })
-    ];
-  }
-
   function renderTable(latestRecord) {
     var tbody = $('tableBody');
     tbody.innerHTML = '';
@@ -492,21 +489,45 @@
       return;
     }
 
-    var displayFunds = [];
     latestRecord.funds.forEach(function (fund) {
-      displayFunds = displayFunds.concat(splitFund(fund));
-    });
+      var isTX = fund.name.indexOf(TIANXING_KEYWORD) !== -1 && fund.shares >= TIANXING_L_SHARES;
+      var xShares = fund.shares - TIANXING_L_SHARES;
+      var lMV = fund.market_value * TIANXING_L_SHARES / fund.shares;
+      var xMV = fund.market_value * xShares / fund.shares;
 
-    displayFunds.forEach(function (fund) {
       var tr = document.createElement('tr');
+
+      var nameHtml = '<td>';
+      if (isTX) {
+        nameHtml += '<span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span>';
+        nameHtml += ' <select class="person-select">';
+        nameHtml += '<option value="L">L</option>';
+        nameHtml += '<option value="X">X</option>';
+        nameHtml += '</select>';
+      } else {
+        nameHtml += '<span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span>';
+      }
+      nameHtml += '</td>';
+
       tr.innerHTML =
-        '<td><span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span></td>' +
-        '<td>' + formatShares(fund.shares) + '</td>' +
-        '<td>' + formatCurrency(fund.market_value) + '</td>' +
+        nameHtml +
+        '<td class="shares-cell" data-l="' + TIANXING_L_SHARES + '" data-x="' + xShares + '">' + formatShares(isTX ? TIANXING_L_SHARES : fund.shares) + '</td>' +
+        '<td class="market-cell" data-l="' + lMV + '" data-x="' + xMV + '">' + formatCurrency(isTX ? lMV : fund.market_value) + '</td>' +
         '<td>' + formatNav(fund.unit_nav) + '</td>' +
         '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
         '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
         '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
+
+      if (isTX) {
+        tr.querySelector('.person-select').addEventListener('change', function () {
+          var person = this.value;
+          var s = parseFloat(tr.querySelector('.shares-cell').getAttribute('data-' + person));
+          var m = parseFloat(tr.querySelector('.market-cell').getAttribute('data-' + person));
+          tr.querySelector('.shares-cell').textContent = formatShares(s);
+          tr.querySelector('.market-cell').textContent = formatCurrency(m);
+        });
+      }
+
       tbody.appendChild(tr);
     });
   }
