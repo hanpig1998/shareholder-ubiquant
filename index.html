@@ -144,10 +144,6 @@
   }
 
   .fund-name {
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     display: inline-block;
     vertical-align: middle;
   }
@@ -316,9 +312,7 @@
       height: 280px;
     }
 
-    .fund-name {
-      max-width: 130px;
-    }
+
 
     .chart-toggle-btn {
       max-width: 140px;
@@ -478,6 +472,18 @@
     $('updateTime').textContent = data.last_updated || '--';
   }
 
+  function renderRow(fund, name, shares, marketValue) {
+    return '<tr>' +
+      '<td><span class="fund-name">' + escapeHtml(name) + '</span></td>' +
+      '<td>' + formatShares(shares) + '</td>' +
+      '<td>' + formatCurrency(marketValue) + '</td>' +
+      '<td>' + formatNav(fund.unit_nav) + '</td>' +
+      '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
+      '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
+      '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>' +
+      '</tr>';
+  }
+
   function renderTable(latestRecord) {
     var tbody = $('tableBody');
     tbody.innerHTML = '';
@@ -491,44 +497,58 @@
 
     latestRecord.funds.forEach(function (fund) {
       var isTX = fund.name.indexOf(TIANXING_KEYWORD) !== -1 && fund.shares >= TIANXING_L_SHARES;
+
+      if (!isTX) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = renderRow(fund, fund.name, fund.shares, fund.market_value);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      // Tian Xing: collapsible row with dropdown
       var xShares = fund.shares - TIANXING_L_SHARES;
       var lMV = fund.market_value * TIANXING_L_SHARES / fund.shares;
       var xMV = fund.market_value * xShares / fund.shares;
 
-      var tr = document.createElement('tr');
-
-      var nameHtml = '<td>';
-      if (isTX) {
-        nameHtml += '<span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span>';
-        nameHtml += ' <select class="person-select">';
-        nameHtml += '<option value="L">L</option>';
-        nameHtml += '<option value="X">X</option>';
-        nameHtml += '</select>';
-      } else {
-        nameHtml += '<span class="fund-name" title="' + escapeHtml(fund.name) + '">' + escapeHtml(fund.name) + '</span>';
-      }
-      nameHtml += '</td>';
-
-      tr.innerHTML =
-        nameHtml +
-        '<td class="shares-cell" data-l="' + TIANXING_L_SHARES + '" data-x="' + xShares + '">' + formatShares(isTX ? TIANXING_L_SHARES : fund.shares) + '</td>' +
-        '<td class="market-cell" data-l="' + lMV + '" data-x="' + xMV + '">' + formatCurrency(isTX ? lMV : fund.market_value) + '</td>' +
+      // Main row with total + dropdown
+      var mainTr = document.createElement('tr');
+      mainTr.innerHTML =
+        '<td>' +
+          '<span class="fund-name">' + escapeHtml(fund.name) + '</span>' +
+          ' <select class="person-select">' +
+            '<option value="total" selected>总览</option>' +
+            '<option value="split">拆分</option>' +
+          '</select>' +
+        '</td>' +
+        '<td class="tx-shares">' + formatShares(fund.shares) + '</td>' +
+        '<td class="tx-market">' + formatCurrency(fund.market_value) + '</td>' +
         '<td>' + formatNav(fund.unit_nav) + '</td>' +
         '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
         '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
         '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
+      tbody.appendChild(mainTr);
 
-      if (isTX) {
-        tr.querySelector('.person-select').addEventListener('change', function () {
-          var person = this.value;
-          var s = parseFloat(tr.querySelector('.shares-cell').getAttribute('data-' + person));
-          var m = parseFloat(tr.querySelector('.market-cell').getAttribute('data-' + person));
-          tr.querySelector('.shares-cell').textContent = formatShares(s);
-          tr.querySelector('.market-cell').textContent = formatCurrency(m);
-        });
-      }
+      // L row (hidden by default)
+      var lTr = document.createElement('tr');
+      lTr.className = 'tx-split-row';
+      lTr.style.display = 'none';
+      lTr.innerHTML = renderRow(fund, fund.name + ' (L)', TIANXING_L_SHARES, lMV);
+      tbody.appendChild(lTr);
 
-      tbody.appendChild(tr);
+      // X row (hidden by default)
+      var xTr = document.createElement('tr');
+      xTr.className = 'tx-split-row';
+      xTr.style.display = 'none';
+      xTr.innerHTML = renderRow(fund, fund.name + ' (X)', xShares, xMV);
+      tbody.appendChild(xTr);
+
+      // Dropdown handler
+      mainTr.querySelector('.person-select').addEventListener('change', function () {
+        var isSplit = this.value === 'split';
+        mainTr.style.display = isSplit ? 'none' : '';
+        lTr.style.display = isSplit ? '' : 'none';
+        xTr.style.display = isSplit ? '' : 'none';
+      });
     });
   }
 
