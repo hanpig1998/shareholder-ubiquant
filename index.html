@@ -148,23 +148,6 @@
     vertical-align: middle;
   }
 
-  .person-select {
-    font-size: 0.72rem;
-    padding: 2px 6px;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
-    background: #fff;
-    color: #475569;
-    cursor: pointer;
-    vertical-align: middle;
-    font-family: inherit;
-  }
-
-  .person-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-  }
 
   .return-positive {
     color: #22c55e;
@@ -472,18 +455,6 @@
     $('updateTime').textContent = data.last_updated || '--';
   }
 
-  function renderRow(fund, name, shares, marketValue) {
-    return '<tr>' +
-      '<td><span class="fund-name">' + escapeHtml(name) + '</span></td>' +
-      '<td>' + formatShares(shares) + '</td>' +
-      '<td>' + formatCurrency(marketValue) + '</td>' +
-      '<td>' + formatNav(fund.unit_nav) + '</td>' +
-      '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
-      '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
-      '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>' +
-      '</tr>';
-  }
-
   function renderTable(latestRecord) {
     var tbody = $('tableBody');
     tbody.innerHTML = '';
@@ -500,55 +471,44 @@
 
       if (!isTX) {
         var tr = document.createElement('tr');
-        tr.innerHTML = renderRow(fund, fund.name, fund.shares, fund.market_value);
+        tr.innerHTML =
+          '<td><span class="fund-name">' + escapeHtml(fund.name) + '</span></td>' +
+          '<td>' + formatShares(fund.shares) + '</td>' +
+          '<td>' + formatCurrency(fund.market_value) + '</td>' +
+          '<td>' + formatNav(fund.unit_nav) + '</td>' +
+          '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
+          '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
+          '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
         tbody.appendChild(tr);
         return;
       }
 
-      // Tian Xing: collapsible row with dropdown
+      // Tian Xing: always show L and X rows
       var xShares = fund.shares - TIANXING_L_SHARES;
       var lMV = fund.market_value * TIANXING_L_SHARES / fund.shares;
       var xMV = fund.market_value * xShares / fund.shares;
 
-      // Main row with total + dropdown
-      var mainTr = document.createElement('tr');
-      mainTr.innerHTML =
-        '<td>' +
-          '<span class="fund-name">' + escapeHtml(fund.name) + '</span>' +
-          ' <select class="person-select">' +
-            '<option value="total" selected>总览</option>' +
-            '<option value="split">拆分</option>' +
-          '</select>' +
-        '</td>' +
-        '<td class="tx-shares">' + formatShares(fund.shares) + '</td>' +
-        '<td class="tx-market">' + formatCurrency(fund.market_value) + '</td>' +
+      var lTr = document.createElement('tr');
+      lTr.innerHTML =
+        '<td><span class="fund-name">' + escapeHtml(fund.name + ' (L)') + '</span></td>' +
+        '<td>' + formatShares(TIANXING_L_SHARES) + '</td>' +
+        '<td>' + formatCurrency(lMV) + '</td>' +
         '<td>' + formatNav(fund.unit_nav) + '</td>' +
         '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
         '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
         '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
-      tbody.appendChild(mainTr);
-
-      // L row (hidden by default)
-      var lTr = document.createElement('tr');
-      lTr.className = 'tx-split-row';
-      lTr.style.display = 'none';
-      lTr.innerHTML = renderRow(fund, fund.name + ' (L)', TIANXING_L_SHARES, lMV);
       tbody.appendChild(lTr);
 
-      // X row (hidden by default)
       var xTr = document.createElement('tr');
-      xTr.className = 'tx-split-row';
-      xTr.style.display = 'none';
-      xTr.innerHTML = renderRow(fund, fund.name + ' (X)', xShares, xMV);
+      xTr.innerHTML =
+        '<td><span class="fund-name">' + escapeHtml(fund.name + ' (X)') + '</span></td>' +
+        '<td>' + formatShares(xShares) + '</td>' +
+        '<td>' + formatCurrency(xMV) + '</td>' +
+        '<td>' + formatNav(fund.unit_nav) + '</td>' +
+        '<td>' + formatNav(fund.cumulative_nav) + '</td>' +
+        '<td>' + formatNav(fund.adjusted_nav) + '</td>' +
+        '<td>' + formatWeeklyReturn(fund.weekly_return) + '</td>';
       tbody.appendChild(xTr);
-
-      // Dropdown handler
-      mainTr.querySelector('.person-select').addEventListener('change', function () {
-        var isSplit = this.value === 'split';
-        mainTr.style.display = isSplit ? 'none' : '';
-        lTr.style.display = isSplit ? '' : 'none';
-        xTr.style.display = isSplit ? '' : 'none';
-      });
     });
   }
 
