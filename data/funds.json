@@ -981,7 +981,99 @@
           "weekly_return": 0.004699999999999999
         }
       ]
+    },
+    {
+      "date": "2026-09-30",
+      "total_value": 11205208.81,
+      "funds": [
+        {
+          "name": "九坤多策略天行1号量化私募证券投资基金",
+          "shares": 1919333.23,
+          "market_value": 2968632.71,
+          "product_nav": 531921474.49,
+          "unit_nav": 1.5467,
+          "cumulative_nav": 1.5467,
+          "adjusted_nav": 1.5467,
+          "weekly_return": -0.013000000000000001
+        },
+        {
+          "name": "九坤量化混合私募12号私募证券投资基金",
+          "shares": 919533.37,
+          "market_value": 2102053.28,
+          "product_nav": null,
+          "unit_nav": 2.286,
+          "cumulative_nav": 2.976,
+          "adjusted_nav": 3.8633,
+          "weekly_return": -0.0558
+        },
+        {
+          "name": "九坤量化混合私募11号私募证券投资基金",
+          "shares": 1081937.09,
+          "market_value": 2433060.13,
+          "product_nav": null,
+          "unit_nav": 2.2488,
+          "cumulative_nav": 2.2488,
+          "adjusted_nav": 2.2488,
+          "weekly_return": -0.0574
+        },
+        {
+          "name": "九坤量化混合私募8号私募证券投资基金",
+          "shares": 1951219.13,
+          "market_value": 3701462.69,
+          "product_nav": null,
+          "unit_nav": 1.897,
+          "cumulative_nav": 1.897,
+          "adjusted_nav": 1.897,
+          "weekly_return": -0.0115
+        }
+      ]
+    },
+    {
+      "date": "2026-10-09",
+      "total_value": 10983391.46,
+      "funds": [
+        {
+          "name": "九坤多策略天行1号量化私募证券投资基金",
+          "shares": 1919333.23,
+          "market_value": 2955965.11,
+          "product_nav": 505122659.67,
+          "unit_nav": 1.5401,
+          "cumulative_nav": 1.5401,
+          "adjusted_nav": 1.5401,
+          "weekly_return": -0.0043
+        },
+        {
+          "name": "九坤量化混合私募12号私募证券投资基金",
+          "shares": 919533.37,
+          "market_value": 2011939.01,
+          "product_nav": null,
+          "unit_nav": 2.188,
+          "cumulative_nav": 2.878,
+          "adjusted_nav": 3.6977,
+          "weekly_return": -0.0429
+        },
+        {
+          "name": "九坤量化混合私募11号私募证券投资基金",
+          "shares": 1081937.09,
+          "market_value": 2325731.97,
+          "product_nav": null,
+          "unit_nav": 2.1496,
+          "cumulative_nav": 2.1496,
+          "adjusted_nav": 2.1496,
+          "weekly_return": -0.0441
+        },
+        {
+          "name": "九坤量化混合私募8号私募证券投资基金",
+          "shares": 1951219.13,
+          "market_value": 3689755.37,
+          "product_nav": null,
+          "unit_nav": 1.891,
+          "cumulative_nav": 1.891,
+          "adjusted_nav": 1.891,
+          "weekly_return": -0.0032
+        }
+      ]
     }
   ],
-  "last_updated": "2026-09-30 03:04:09"
+  "last_updated": "2026-10-14 02:46:15"
 }
